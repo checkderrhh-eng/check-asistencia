@@ -31,7 +31,15 @@ const Storage = {
   }
 };
 
-// Datos iniciales si no existen
+// Logo por defecto (SVG inline)
+const DefaultLogo = () => (
+  <svg viewBox="0 0 100 100" className="w-full h-full">
+    <circle cx="50" cy="50" r="45" fill="#38BDF8"/>
+    <path d="M35 50 L45 60 L65 40" stroke="white" strokeWidth="6" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+// Datos iniciales
 const initializeData = () => {
   if (!Storage.get('usuarios')) {
     const usuariosIniciales = [
@@ -92,7 +100,21 @@ const initializeData = () => {
   }
 };
 
-// Componente de iconos SVG
+// Función para descargar CSV
+const downloadCSV = (data, filename) => {
+  const csv = data.map(row => row.join(',')).join('\n');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+// Iconos SVG
 const Icon = ({ name, className = "" }) => {
   const icons = {
     Clock: () => (
@@ -166,6 +188,14 @@ const Icon = ({ name, className = "" }) => {
         <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
       </svg>
     ),
+    UserPlus: () => (
+      <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+        <circle cx="8.5" cy="7" r="4"></circle>
+        <line x1="20" y1="8" x2="20" y2="14"></line>
+        <line x1="23" y1="11" x2="17" y2="11"></line>
+      </svg>
+    ),
     FileText: () => (
       <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -180,6 +210,13 @@ const Icon = ({ name, className = "" }) => {
         <path d="M18 17V9"></path>
         <path d="M13 17V5"></path>
         <path d="M8 17v-3"></path>
+      </svg>
+    ),
+    Download: () => (
+      <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="7 10 12 15 17 10"></polyline>
+        <line x1="12" y1="15" x2="12" y2="3"></line>
       </svg>
     ),
     Trash2: () => (
@@ -218,7 +255,7 @@ const LoginScreen = ({ onLogin }) => {
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <div className="w-20 h-20 bg-gradient-to-br from-[#7DD3FC] to-[#38BDF8] rounded-full flex items-center justify-center mx-auto mb-4">
-            <img src="https://github.com/user-attachments/assets/b8c8e5dc-bfa1-485c-a9f9-84332c5ef7d1" alt="Logo" className="w-14 h-14" />
+            <DefaultLogo />
           </div>
           <h1 className="text-3xl font-bold text-gray-800">Check de Asistencia</h1>
           <p className="text-gray-600 mt-2">Ingresa tus credenciales</p>
@@ -276,6 +313,143 @@ const LoginScreen = ({ onLogin }) => {
   );
 };
 
+// Modal para agregar empleado
+const AddEmployeeModal = ({ onClose, onSave }) => {
+  const [formData, setFormData] = useState({
+    nombre: '',
+    email: '',
+    password: '1234',
+    legajo: '',
+    departamento: '',
+    horarioEntrada: '08:00',
+    horarioSalida: '17:00'
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const usuarios = Storage.get('usuarios') || [];
+    
+    // Verificar si el email ya existe
+    if (usuarios.some(u => u.email === formData.email)) {
+      alert('Este email ya está registrado');
+      return;
+    }
+    
+    const newUser = {
+      ...formData,
+      id: Date.now().toString(),
+      rol: 'empleado'
+    };
+    
+    usuarios.push(newUser);
+    Storage.set('usuarios', usuarios);
+    onSave();
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <h3 className="text-xl font-bold text-gray-800 mb-4">Agregar Nuevo Empleado</h3>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Nombre Completo *</label>
+            <input
+              type="text"
+              value={formData.nombre}
+              onChange={(e) => setFormData({...formData, nombre: e.target.value})}
+              className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-[#38BDF8] focus:outline-none"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Email *</label>
+            <input
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData({...formData, email: e.target.value})}
+              className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-[#38BDF8] focus:outline-none"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Contraseña *</label>
+            <input
+              type="text"
+              value={formData.password}
+              onChange={(e) => setFormData({...formData, password: e.target.value})}
+              className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-[#38BDF8] focus:outline-none"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Legajo *</label>
+            <input
+              type="text"
+              value={formData.legajo}
+              onChange={(e) => setFormData({...formData, legajo: e.target.value})}
+              className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-[#38BDF8] focus:outline-none"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Departamento *</label>
+            <input
+              type="text"
+              value={formData.departamento}
+              onChange={(e) => setFormData({...formData, departamento: e.target.value})}
+              className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-[#38BDF8] focus:outline-none"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Hora Entrada</label>
+              <input
+                type="time"
+                value={formData.horarioEntrada}
+                onChange={(e) => setFormData({...formData, horarioEntrada: e.target.value})}
+                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-[#38BDF8] focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Hora Salida</label>
+              <input
+                type="time"
+                value={formData.horarioSalida}
+                onChange={(e) => setFormData({...formData, horarioSalida: e.target.value})}
+                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-[#38BDF8] focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-3 mt-6">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="flex-1 bg-[#38BDF8] text-white py-3 rounded-lg font-semibold hover:bg-[#0EA5E9]"
+            >
+              Guardar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 // Aplicación principal
 const AttendanceSystem = () => {
   const [currentUser, setCurrentUser] = useState(null);
@@ -283,24 +457,21 @@ const AttendanceSystem = () => {
   const [location, setLocation] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [showAddEmployeeModal, setShowAddEmployeeModal] = useState(false);
   const [modalType, setModalType] = useState('');
   const [justification, setJustification] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
 
   useEffect(() => {
-    // Inicializar datos
     initializeData();
     
-    // Verificar si hay usuario logueado
     const savedUser = Storage.get('currentUser');
     if (savedUser) {
       setCurrentUser(savedUser);
     }
 
-    // Timer para reloj
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     
-    // Obtener ubicación
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -357,8 +528,6 @@ const AttendanceSystem = () => {
 
     marcaciones.push(newMarcacion);
     Storage.set('marcaciones', marcaciones);
-    
-    // Forzar re-render
     setCurrentTime(new Date());
   };
 
@@ -412,7 +581,7 @@ const AttendanceSystem = () => {
       s.id === solicitudId ? { ...s, estado: 'aprobada' } : s
     );
     Storage.set('solicitudes', updated);
-    setCurrentTime(new Date()); // Force re-render
+    setCurrentTime(new Date());
   };
 
   const handleRejectSolicitud = (solicitudId) => {
@@ -421,7 +590,34 @@ const AttendanceSystem = () => {
       s.id === solicitudId ? { ...s, estado: 'rechazada' } : s
     );
     Storage.set('solicitudes', updated);
-    setCurrentTime(new Date()); // Force re-render
+    setCurrentTime(new Date());
+  };
+
+  const generateReport = () => {
+    const marcaciones = Storage.get('marcaciones') || [];
+    const usuarios = Storage.get('usuarios') || [];
+    
+    // Preparar datos para CSV
+    const csvData = [
+      ['Fecha', 'Empleado', 'Legajo', 'Tipo', 'Hora', 'Estado', 'Latitud', 'Longitud']
+    ];
+    
+    marcaciones.forEach(m => {
+      const usuario = usuarios.find(u => u.id === m.usuarioId);
+      csvData.push([
+        m.fecha,
+        m.usuarioNombre,
+        usuario ? usuario.legajo : '',
+        m.tipo.replace('_', ' '),
+        m.hora,
+        m.estado,
+        m.ubicacion.lat.toFixed(6),
+        m.ubicacion.lng.toFixed(6)
+      ]);
+    });
+    
+    const today = new Date().toISOString().split('T')[0];
+    downloadCSV(csvData, `reporte_asistencia_${today}.csv`);
   };
 
   const clearAllData = () => {
@@ -450,8 +646,8 @@ const AttendanceSystem = () => {
       <div className="space-y-6 pb-24">
         <div className="bg-gradient-to-br from-[#7DD3FC] to-[#38BDF8] rounded-2xl p-6 text-white shadow-lg">
           <div className="flex items-center space-x-4 mb-4">
-            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center">
-              <img src="https://github.com/user-attachments/assets/b8c8e5dc-bfa1-485c-a9f9-84332c5ef7d1" alt="Logo" className="w-12 h-12" />
+            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center p-2">
+              <DefaultLogo />
             </div>
             <div>
               <h2 className="text-2xl font-bold">{currentUser.nombre}</h2>
@@ -619,7 +815,6 @@ const AttendanceSystem = () => {
     const solicitudesPendientes = getPendingSolicitudes();
 
     const getEmpleadoStatus = (empleadoId) => {
-      const today = new Date().toISOString().split('T')[0];
       const marcaciones = allRecords.filter(m => m.usuarioId === empleadoId);
       
       const entrada = marcaciones.find(m => m.tipo === 'entrada');
@@ -659,6 +854,14 @@ const AttendanceSystem = () => {
             <p className="text-xs text-gray-600">Solicitudes</p>
           </div>
         </div>
+
+        <button
+          onClick={() => setShowAddEmployeeModal(true)}
+          className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center space-x-2 active:scale-95"
+        >
+          <Icon name="UserPlus" className="w-5 h-5" />
+          <span>Agregar Nuevo Empleado</span>
+        </button>
 
         {solicitudesPendientes.length > 0 && (
           <div>
@@ -741,6 +944,14 @@ const AttendanceSystem = () => {
         </div>
 
         <button 
+          onClick={generateReport}
+          className="w-full bg-[#38BDF8] text-white py-4 rounded-xl font-semibold shadow-lg hover:bg-[#0EA5E9] transition-all flex items-center justify-center space-x-2 active:scale-95"
+        >
+          <Icon name="Download" className="w-5 h-5" />
+          <span>Descargar Reporte CSV</span>
+        </button>
+
+        <button 
           onClick={clearAllData}
           className="w-full bg-red-500 text-white py-3 rounded-xl font-semibold shadow-lg hover:bg-red-600 transition-all flex items-center justify-center space-x-2 active:scale-95"
         >
@@ -756,7 +967,9 @@ const AttendanceSystem = () => {
       <div className="bg-white shadow-md sticky top-0 z-50">
         <div className="max-w-md mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-3">
-            <img src="https://github.com/user-attachments/assets/b8c8e5dc-bfa1-485c-a9f9-84332c5ef7d1" alt="Logo" className="w-8 h-8" />
+            <div className="w-8 h-8">
+              <DefaultLogo />
+            </div>
             <h1 className="text-xl font-bold text-gray-800">Check de Asistencia</h1>
           </div>
           <button onClick={() => setMenuOpen(!menuOpen)} className="text-gray-600">
@@ -841,6 +1054,13 @@ const AttendanceSystem = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {showAddEmployeeModal && (
+        <AddEmployeeModal
+          onClose={() => setShowAddEmployeeModal(false)}
+          onSave={() => setCurrentTime(new Date())}
+        />
       )}
     </div>
   );
